@@ -1,0 +1,74 @@
+#!/bin/sh
+
+echo "Content-Type: application/json"
+echo ""
+
+LEASES="/tmp/dhcp.leases"
+TMP_CONN="/tmp/abeyy-conn.$$"
+TMP_DEV="/tmp/abeyy-dev.$$"
+
+: > "$TMP_CONN"
+: > "$TMP_DEV"
+
+grep 'src=192\.168\.1\.' /proc/net/nf_conntrack 2>/dev/null |
+awk '{
+    for (i=1; i<=NF; i++) {
+        if ($i ~ /^src=192\.168\.1\./) {
+            split($i,a,"=")
+            count[a[2]]++
+            break
+        }
+    }
+}
+END {
+    for (ip in count)
+        print ip "|" count[ip]
+}' > "$TMP_CONN"
+
+if [ -r "$LEASES" ]; then
+    while read -r EXPIRY MAC IP HOST CLIENT_ID; do
+        [ -n "$IP" ] || continue
+        [ -n "$MAC" ] || continue
+
+        if [ -z "$HOST" ] || [ "$HOST" = "*" ]; then
+            HOST="Unknown"
+        fi
+
+        CONNS="$(awk -F'|' -v ip="$IP" '$1==ip {print $2; exit}' "$TMP_CONN")"
+        CONNS="${CONNS:-0}"
+
+        if [ "$CONNS" -gt 5 ]; then
+            STATUS="Active"
+        else
+            STATUS="Idle"
+        fi
+
+        HOST="$(printf '%s' "$HOST" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+        MAC="$(printf '%s' "$MAC" | tr 'A-F' 'a-f')"
+
+        printf '%s|%s|%s|%s|%s\n' \
+            "$CONNS" "$HOST" "$IP" "$MAC" "$STATUS" >> "$TMP_DEV"
+    done < "$LEASES"
+fi
+
+printf '[\n'
+
+FIRST=1
+
+sort -t'|' -k1,1 -nr "$TMP_DEV" |
+while IFS='|' read -r CONNS HOST IP MAC STATUS; do
+    [ -n "$IP" ] || continue
+
+    if [ "$FIRST" -eq 0 ]; then
+        printf ',\n'
+    fi
+
+    printf '{"hostname":"%s","ip":"%s","mac":"%s","connections":%s,"status":"%s"}' \
+        "$HOST" "$IP" "$MAC" "$CONNS" "$STATUS"
+
+    FIRST=0
+done
+
+printf '\n]\n'
+
+rm -f "$TMP_CONN" "$TMP_DEV"

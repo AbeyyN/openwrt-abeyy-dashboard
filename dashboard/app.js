@@ -17,3 +17,80 @@ const cpu=document.getElementById('cpu'),ram=document.getElementById('ram'),stor
 safe(loadStatus);safe(loadNetwork);safe(loadUsage);safe(loadDevices);
 setInterval(()=>safe(loadStatus),5000);setInterval(()=>safe(loadNetwork),3000);setInterval(()=>safe(loadUsage),60000);setInterval(()=>safe(loadDevices),10000);
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(console.error);
+
+
+const activityBody = document.getElementById("activityBody");
+const activityUpdated = document.getElementById("activityUpdated");
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function refreshActivity() {
+  if (!activityBody) return;
+
+  try {
+    const response = await fetch(
+      "/cgi-bin/dashboard/activity?t=" + Date.now(),
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const devices = await response.json();
+
+    if (!Array.isArray(devices) || devices.length === 0) {
+      activityBody.innerHTML =
+        '<tr><td colspan="4">No device activity detected.</td></tr>';
+      return;
+    }
+
+    activityBody.innerHTML = devices.map((device, index) => {
+      const active = device.status === "Active";
+      const badgeClass = active ? "status-active" : "status-idle";
+
+      return `
+        <tr>
+          <td>
+            <div class="device-name">
+              <span class="rank-number">${index + 1}</span>
+              <div>
+                <strong>${escapeHtml(device.hostname)}</strong>
+                <small>${escapeHtml(device.mac)}</small>
+              </div>
+            </div>
+          </td>
+          <td>${escapeHtml(device.ip)}</td>
+          <td><strong>${Number(device.connections || 0)}</strong></td>
+          <td>
+            <span class="activity-status ${badgeClass}">
+              ${escapeHtml(device.status)}
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    if (activityUpdated) {
+      activityUpdated.textContent =
+        "Updated " + new Date().toLocaleTimeString("en-GB");
+    }
+  } catch (error) {
+    activityBody.innerHTML =
+      `<tr><td colspan="4">Activity API error: ${escapeHtml(error.message)}</td></tr>`;
+
+    if (activityUpdated) {
+      activityUpdated.textContent = "Offline";
+    }
+  }
+}
+
+refreshActivity();
+setInterval(refreshActivity, 5000);
