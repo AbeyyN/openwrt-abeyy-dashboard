@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827">
+<title>Dashboard by Abeyy Techxy</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<header class="header">
+  <div><div class="brand">🚀 Dashboard by Abeyy Techxy</div><div class="subtitle">OpenWrt Live Monitor</div></div>
+  <div id="connectionState" class="badge">Connecting…</div>
+</header>
+<main class="container">
+<section class="card">
+<h2>🌐 Internet Live</h2>
+<div class="speed-grid">
+<div class="metric"><span class="label">Download</span><strong id="download">-</strong></div>
+<div class="metric"><span class="label">Upload</span><strong id="upload">-</strong></div>
+</div>
+</section>
+
+<section class="card chart-card"><h2>📈 Live Speed</h2><canvas id="speedChart"></canvas></section>
+
+<section class="grid">
+<article class="box"><span class="label">CPU</span><div class="value" id="cpu">-</div></article>
+<article class="box"><span class="label">RAM</span><div class="value" id="ram">-</div></article>
+<article class="box"><span class="label">Storage</span><div class="value" id="storage">-</div></article>
+<article class="box"><span class="label">Uptime</span><div class="value" id="uptime">-</div></article>
+</section>
+
+<section class="card">
+<h2>📊 Data Usage</h2>
+<div class="usage-grid">
+<article class="usage-box"><span class="label">Hari Ini</span><div class="usage-total" id="todayTotal">-</div><small>↓ <span id="todayRx">-</span> · ↑ <span id="todayTx">-</span></small></article>
+<article class="usage-box"><span class="label">Bulan Ini</span><div class="usage-total" id="monthTotal">-</div><small>↓ <span id="monthRx">-</span> · ↑ <span id="monthTx">-</span></small></article>
+</div>
+</section>
+
+<section class="card">
+<div class="section-title"><h2>📱 Connected Devices</h2><span id="deviceCount" class="badge">0 online</span></div>
+<div class="table-wrap"><table>
+<thead><tr><th>Name</th><th>IP</th><th>MAC</th></tr></thead>
+<tbody id="devices"></tbody>
+</table></div>
+</section>
+</main>
+<div id="toast" class="toast"></div>
+</body>
+</html>

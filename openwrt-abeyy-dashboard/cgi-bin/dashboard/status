@@ -1,0 +1,11 @@
+#!/bin/sh
+echo "Content-Type: application/json"; echo ""
+readcpu(){ read _ u n s i w q f t _ _ < /proc/stat; T=$((u+n+s+i+w+q+f+t)); I=$((i+w));}
+readcpu; T1=$T; I1=$I; sleep 1; readcpu
+D=$((T-T1)); J=$((I-I1)); [ "$D" -gt 0 ] && CPU=$((100-J*100/D)) || CPU=0
+RAM=$(free|awk '/Mem:/{printf "%.0f",$3/$2*100}')
+STORAGE=$(df /overlay|awk 'NR==2{gsub("%","",$5);print $5}')
+UPTIME=$(awk '{print int($1)}' /proc/uptime)
+cat <<EOF
+{"hostname":"Dashboard by Abeyy Techxy","uptime":${UPTIME:-0},"cpu":${CPU:-0},"ram":${RAM:-0},"storage":${STORAGE:-0}}
+EOF

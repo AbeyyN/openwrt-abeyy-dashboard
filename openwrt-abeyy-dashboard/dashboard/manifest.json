@@ -1,0 +1,10 @@
+{
+  "name": "Dashboard by Abeyy Techxy",
+  "short_name": "Abeyy Dashboard",
+  "start_url": "/dashboard/",
+  "scope": "/dashboard/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#111827",
+  "icons": []
+}

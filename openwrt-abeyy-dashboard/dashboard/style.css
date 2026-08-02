@@ -1,0 +1,13 @@
+:root{color-scheme:dark;--bg:#0f172a;--header:#111827;--card:#1e293b;--box:#334155;--line:#475569;--text:#f8fafc;--muted:#94a3b8;--accent:#00ff99;--danger:#fb7185}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+.header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;background:rgba(17,24,39,.96);border-bottom:1px solid #263244}
+.brand{color:var(--accent);font-size:clamp(18px,4vw,25px);font-weight:800}.subtitle{margin-top:3px;color:var(--muted);font-size:12px}
+.container{width:min(1100px,100%);margin:auto;padding:15px}.card{margin-bottom:15px;padding:16px;background:var(--card);border-radius:14px}
+.card h2{margin:0 0 14px;font-size:18px}.grid,.speed-grid,.usage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.grid{margin-bottom:15px}
+.box,.metric,.usage-box{padding:15px;background:var(--box);border-radius:11px}.label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}
+.value,.metric strong,.usage-total{font-size:clamp(23px,5vw,31px);font-weight:800}.usage-box small{display:block;margin-top:8px;color:#cbd5e1}
+.chart-card{min-height:270px}.chart-card canvas{max-height:220px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.badge{display:inline-flex;padding:6px 10px;background:#273449;color:#cbd5e1;border-radius:999px;font-size:12px;white-space:nowrap}.badge.online{color:var(--accent)}.badge.offline{color:var(--danger)}
+.table-wrap{overflow-x:auto}table{width:100%;min-width:580px;border-collapse:collapse}th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-size:13px}
+.toast{position:fixed;right:16px;bottom:16px;z-index:100;max-width:min(360px,calc(100vw - 32px));padding:12px 15px;background:#020617;border:1px solid var(--accent);border-radius:10px;opacity:0;transform:translateY(12px);transition:.2s}.toast.show{opacity:1;transform:none}
+@media(max-width:600px){.container{padding:10px}.card{padding:13px}}

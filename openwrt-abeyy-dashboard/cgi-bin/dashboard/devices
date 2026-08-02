@@ -1,0 +1,12 @@
+#!/bin/sh
+echo "Content-Type: application/json"; echo ""
+printf '[\n'; F=1
+[ -f /tmp/dhcp.leases ] && while read -r E M I H C; do
+[ -n "$M" ] || continue; [ -n "$I" ] || continue
+[ -z "$H" ] || [ "$H" = "*" ] && H="Unknown"
+H=$(printf '%s' "$H"|sed 's/\\/\\\\/g;s/"/\\"/g')
+[ "$F" -eq 0 ] && printf ',\n'
+printf '{"hostname":"%s","ip":"%s","mac":"%s"}' "$H" "$I" "$(printf '%s' "$M"|tr A-F a-f)"
+F=0
+done
+printf '\n]\n'

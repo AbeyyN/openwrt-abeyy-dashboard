@@ -1,0 +1,9 @@
+#!/bin/sh
+echo "Content-Type: application/json"; echo ""
+[ -f /etc/abeyy-dashboard.conf ] && . /etc/abeyy-dashboard.conf
+I="${WAN_IF:-wwan0}"; D="$(vnstat --json -i "$I" 2>/dev/null)"
+last(){ printf '%s' "$D"|jsonfilter -e "$1" 2>/dev/null|tail -n1; }
+DR=$(last '@.interfaces[0].traffic.day[*].rx'); DT=$(last '@.interfaces[0].traffic.day[*].tx')
+MR=$(last '@.interfaces[0].traffic.month[*].rx'); MT=$(last '@.interfaces[0].traffic.month[*].tx')
+DR=${DR:-0};DT=${DT:-0};MR=${MR:-0};MT=${MT:-0}
+echo "{"today_rx":$DR,"today_tx":$DT,"today_total":$((DR+DT)),"month_rx":$MR,"month_tx":$MT,"month_total":$((MR+MT))}"

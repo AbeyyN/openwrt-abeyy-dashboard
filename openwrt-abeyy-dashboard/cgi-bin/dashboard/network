@@ -1,0 +1,9 @@
+#!/bin/sh
+echo "Content-Type: application/json"; echo ""
+[ -f /etc/abeyy-dashboard.conf ] && . /etc/abeyy-dashboard.conf
+I="${WAN_IF:-wwan0}"; R="/sys/class/net/$I/statistics/rx_bytes"; T="/sys/class/net/$I/statistics/tx_bytes"
+[ -r "$R" ] || { echo '{"download":"0 Mbps","upload":"0 Mbps"}'; exit; }
+R1=$(cat "$R"); T1=$(cat "$T"); sleep 1; R2=$(cat "$R"); T2=$(cat "$T")
+D=$(awk -v b="$((R2-R1))" 'BEGIN{printf "%.2f",b*8/1000000}')
+U=$(awk -v b="$((T2-T1))" 'BEGIN{printf "%.2f",b*8/1000000}')
+echo "{"interface":"$I","download":"$D Mbps","upload":"$U Mbps"}"
