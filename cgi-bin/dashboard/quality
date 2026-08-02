@@ -1,0 +1,122 @@
+#!/bin/sh
+
+echo "Content-Type: application/json"
+echo ""
+
+WAN_STATUS="$(ubus call network.interface.wan status 2>/dev/null)"
+GATEWAY="$(printf '%s' "$WAN_STATUS" |
+    jsonfilter -e '@.route[0].nexthop' 2>/dev/null)"
+DNS_SERVER="$(printf '%s' "$WAN_STATUS" |
+    jsonfilter -e '@["dns-server"][0]' 2>/dev/null)"
+
+[ -n "$GATEWAY" ] || GATEWAY="Unknown"
+[ -n "$DNS_SERVER" ] || DNS_SERVER="1.9.1.9"
+
+PING_TARGET="1.1.1.1"
+
+PING_OUTPUT="$(ping -c 5 -W 2 "$PING_TARGET" 2>/dev/null)"
+GATEWAY_OUTPUT="$(ping -c 3 -W 2 "$GATEWAY" 2>/dev/null)"
+
+PACKET_LOSS="$(printf '%s\n' "$PING_OUTPUT" |
+awk -F',' '/packet loss/ {
+    gsub(/% packet loss/, "", $3)
+    gsub(/^[ \t]+|[ \t]+$/, "", $3)
+    print $3
+}')"
+
+PING_AVG="$(printf '%s\n' "$PING_OUTPUT" |
+awk -F'=' '/round-trip min\/avg\/max/ {
+    split($2,a,"/")
+    gsub(/^[ \t]+/, "", a[2])
+    print a[2]
+}')"
+
+JITTER="$(printf '%s\n' "$PING_OUTPUT" |
+awk '
+/time=/ {
+    split($0,a,"time=")
+    split(a[2],b," ")
+    t[++n]=b[1]
+}
+END {
+    if (n < 2) {
+        print "0"
+        exit
+    }
+
+    total=0
+    for (i=2; i<=n; i++) {
+        diff=t[i]-t[i-1]
+        if (diff < 0) diff=-diff
+        total+=diff
+    }
+
+    printf "%.3f", total/(n-1)
+}')"
+
+GATEWAY_AVG="$(printf '%s\n' "$GATEWAY_OUTPUT" |
+awk -F'=' '/round-trip min\/avg\/max/ {
+    split($2,a,"/")
+    gsub(/^[ \t]+/, "", a[2])
+    print a[2]
+}')"
+
+DNS_START="$(awk '{print $1}' /proc/uptime)"
+
+nslookup openwrt.org "$DNS_SERVER" \
+    >/tmp/quality-dns.$$ 2>/dev/null
+
+DNS_END="$(awk '{print $1}' /proc/uptime)"
+
+DNS_TIME="$(awk -v start="$DNS_START" -v end="$DNS_END" \
+    'BEGIN {
+        value=(end-start)*1000
+        if (value < 0) value=0
+        printf "%.0f", value
+    }')"
+
+if ! grep -q 'Address:' /tmp/quality-dns.$$ 2>/dev/null; then
+    DNS_TIME="0"
+fi
+
+rm -f /tmp/quality-dns.$$
+
+PACKET_LOSS="${PACKET_LOSS:-100}"
+PING_AVG="${PING_AVG:-0}"
+JITTER="${JITTER:-0}"
+GATEWAY_AVG="${GATEWAY_AVG:-0}"
+DNS_TIME="${DNS_TIME:-0}"
+
+PING_INT="${PING_AVG%.*}"
+JITTER_INT="${JITTER%.*}"
+
+STATUS="Excellent"
+
+if [ "$PACKET_LOSS" -ge 100 ] || [ "$PING_INT" -eq 0 ]; then
+    STATUS="Offline"
+elif [ "$PACKET_LOSS" -gt 5 ] || [ "$PING_INT" -gt 120 ] || [ "$JITTER_INT" -gt 40 ]; then
+    STATUS="Unstable"
+elif [ "$PACKET_LOSS" -gt 0 ] || [ "$PING_INT" -gt 60 ] || [ "$JITTER_INT" -gt 20 ]; then
+    STATUS="Fair"
+elif [ "$PING_INT" -gt 35 ] || [ "$JITTER_INT" -gt 10 ]; then
+    STATUS="Good"
+fi
+
+if [ "$GATEWAY_AVG" = "0" ]; then
+    GATEWAY_JSON="null"
+else
+    GATEWAY_JSON="$GATEWAY_AVG"
+fi
+
+cat <<JSON
+{
+  "status":"$STATUS",
+  "gateway":"$GATEWAY",
+  "gateway_ping":$GATEWAY_JSON,
+  "internet_ping":$PING_AVG,
+  "jitter":$JITTER,
+  "packet_loss":$PACKET_LOSS,
+  "dns_server":"$DNS_SERVER",
+  "dns_response":$DNS_TIME
+}
+JSON

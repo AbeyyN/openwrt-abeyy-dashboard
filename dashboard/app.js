@@ -94,3 +94,172 @@ async function refreshActivity() {
 
 refreshActivity();
 setInterval(refreshActivity, 5000);
+
+/* Abeyy Dashboard generic local plugin loader */
+(async function loadLocalPlugins() {
+  try {
+    const response = await fetch(
+      "/dashboard/plugins/plugins.json?t=" + Date.now(),
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) return;
+
+    const plugins = await response.json();
+    if (!Array.isArray(plugins)) return;
+
+    for (const file of plugins) {
+      if (typeof file !== "string" || !file.endsWith(".js")) continue;
+
+      await new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src =
+          "/dashboard/plugins/" +
+          encodeURIComponent(file) +
+          "?t=" +
+          Date.now();
+        script.onload = resolve;
+        script.onerror = resolve;
+        document.body.appendChild(script);
+      });
+    }
+  } catch (_) {
+    /* Dashboard continues normally without private plugins */
+  }
+})();
+
+
+const qualityStatus = document.getElementById("qualityStatus");
+const qualityPing = document.getElementById("qualityPing");
+const qualityJitter = document.getElementById("qualityJitter");
+const qualityLoss = document.getElementById("qualityLoss");
+const qualityDns = document.getElementById("qualityDns");
+const qualityGateway = document.getElementById("qualityGateway");
+const qualityUpdated = document.getElementById("qualityUpdated");
+
+async function refreshQuality() {
+  if (!qualityStatus) return;
+
+  try {
+    const response = await fetch(
+      "/cgi-bin/dashboard/quality?t=" + Date.now(),
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const data = await response.json();
+
+    qualityStatus.textContent = data.status || "Unknown";
+    qualityStatus.className =
+      "quality-value quality-" +
+      String(data.status || "unknown").toLowerCase();
+
+    qualityPing.textContent =
+      Number(data.internet_ping || 0).toFixed(1) + " ms";
+
+    qualityJitter.textContent =
+      Number(data.jitter || 0).toFixed(1) + " ms";
+
+    qualityLoss.textContent =
+      Number(data.packet_loss || 0).toFixed(0) + "%";
+
+    qualityDns.textContent =
+      Number(data.dns_response || 0).toFixed(0) + " ms";
+
+    qualityGateway.textContent =
+      data.gateway_ping === null
+        ? "N/A"
+        : Number(data.gateway_ping || 0).toFixed(1) + " ms";
+
+    if (qualityUpdated) {
+      qualityUpdated.textContent =
+        "Updated " + new Date().toLocaleTimeString("en-GB");
+    }
+  } catch (error) {
+    qualityStatus.textContent = "Offline";
+    qualityStatus.className = "quality-value quality-offline";
+
+    if (qualityUpdated) {
+      qualityUpdated.textContent = "API error";
+    }
+  }
+}
+
+refreshQuality();
+setInterval(refreshQuality, 15000);
+
+
+const securityBody = document.getElementById("securityBody");
+const securitySummary = document.getElementById("securitySummary");
+const securityUpdated = document.getElementById("securityUpdated");
+
+async function refreshSecurity() {
+  if (!securityBody) return;
+
+  try {
+    const response = await fetch(
+      "/cgi-bin/dashboard/security?t=" + Date.now(),
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const devices = await response.json();
+
+    if (!Array.isArray(devices) || devices.length === 0) {
+      securityBody.innerHTML =
+        '<tr><td colspan="4">No unknown devices detected.</td></tr>';
+
+      securitySummary.textContent = "Network clear";
+      securitySummary.className =
+        "security-summary security-clear";
+
+      securityUpdated.textContent =
+        "Checked " + new Date().toLocaleTimeString("en-GB");
+      return;
+    }
+
+    securitySummary.textContent =
+      devices.length +
+      (devices.length === 1
+        ? " unknown device detected"
+        : " unknown devices detected");
+
+    securitySummary.className =
+      "security-summary security-alert";
+
+    securityBody.innerHTML = devices.map((device, index) => `
+      <tr>
+        <td>
+          <div class="device-name">
+            <span class="rank-number">${index + 1}</span>
+            <strong>${escapeHtml(device.hostname)}</strong>
+          </div>
+        </td>
+        <td>${escapeHtml(device.ip)}</td>
+        <td>${escapeHtml(device.mac)}</td>
+        <td>${escapeHtml(device.first_seen)}</td>
+      </tr>
+    `).join("");
+
+    securityUpdated.textContent =
+      "Alert · " + new Date().toLocaleTimeString("en-GB");
+  } catch (error) {
+    securityBody.innerHTML =
+      `<tr><td colspan="4">Security API error: ${escapeHtml(error.message)}</td></tr>`;
+
+    securitySummary.textContent = "Detection offline";
+    securitySummary.className =
+      "security-summary security-alert";
+
+    securityUpdated.textContent = "API error";
+  }
+}
+
+refreshSecurity();
+setInterval(refreshSecurity, 10000);

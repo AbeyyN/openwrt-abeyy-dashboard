@@ -1,0 +1,81 @@
+#!/bin/sh
+
+echo "Content-Type: application/json"
+echo ""
+
+BASE="/etc/abeyy-dashboard"
+KNOWN="$BASE/known-devices"
+SEEN="$BASE/new-device-seen"
+CURRENT="/tmp/abeyy-security-current.$$"
+OUTPUT="/tmp/abeyy-security-output.$$"
+
+mkdir -p "$BASE"
+touch "$KNOWN" "$SEEN"
+chmod 600 "$KNOWN" "$SEEN"
+
+curl -s http://127.0.0.1/cgi-bin/dashboard/devices |
+jsonfilter -e '@[*]' 2>/dev/null > "$CURRENT"
+
+: > "$OUTPUT"
+
+while read -r ITEM; do
+    [ -n "$ITEM" ] || continue
+
+    MAC="$(printf '%s' "$ITEM" |
+        jsonfilter -e '@.mac' 2>/dev/null |
+        tr 'A-F' 'a-f')"
+
+    IP="$(printf '%s' "$ITEM" |
+        jsonfilter -e '@.ip' 2>/dev/null)"
+
+    HOST="$(printf '%s' "$ITEM" |
+        jsonfilter -e '@.hostname' 2>/dev/null)"
+
+    [ -n "$MAC" ] || continue
+
+    if grep -qi "^$MAC$" "$KNOWN"; then
+        continue
+    fi
+
+    FIRST_SEEN="$(awk -F'|' -v mac="$MAC" '
+        tolower($1) == tolower(mac) {
+            print $2
+            exit
+        }
+    ' "$SEEN")"
+
+    if [ -z "$FIRST_SEEN" ]; then
+        FIRST_SEEN="$(date '+%Y-%m-%d %H:%M:%S')"
+        printf '%s|%s\n' "$MAC" "$FIRST_SEEN" >> "$SEEN"
+    fi
+
+    [ -n "$HOST" ] || HOST="Unknown"
+
+    SAFE_HOST="$(printf '%s' "$HOST" |
+        sed 's/\\/\\\\/g; s/"/\\"/g')"
+
+    printf '%s|%s|%s|%s\n' \
+        "$FIRST_SEEN" "$SAFE_HOST" "$IP" "$MAC" >> "$OUTPUT"
+
+done < "$CURRENT"
+
+printf '[\n'
+FIRST=1
+
+sort -r "$OUTPUT" |
+while IFS='|' read -r FIRST_SEEN HOST IP MAC; do
+    [ -n "$MAC" ] || continue
+
+    if [ "$FIRST" -eq 0 ]; then
+        printf ',\n'
+    fi
+
+    printf '{"hostname":"%s","ip":"%s","mac":"%s","first_seen":"%s","status":"New"}' \
+        "$HOST" "$IP" "$MAC" "$FIRST_SEEN"
+
+    FIRST=0
+done
+
+printf '\n]\n'
+
+rm -f "$CURRENT" "$OUTPUT"

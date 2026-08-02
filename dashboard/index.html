@@ -49,6 +49,82 @@
 </table></div>
 </section>
 
+
+<section class="quality-panel">
+  <div class="section-heading">
+    <div>
+      <h2>Internet Quality</h2>
+      <p>Live latency, jitter, packet loss and DNS response</p>
+    </div>
+    <span id="qualityUpdated">Updating...</span>
+  </div>
+
+  <div class="quality-grid">
+    <div class="quality-card">
+      <span>Status</span>
+      <strong id="qualityStatus">Loading...</strong>
+    </div>
+
+    <div class="quality-card">
+      <span>Internet Ping</span>
+      <strong id="qualityPing">-- ms</strong>
+    </div>
+
+    <div class="quality-card">
+      <span>Jitter</span>
+      <strong id="qualityJitter">-- ms</strong>
+    </div>
+
+    <div class="quality-card">
+      <span>Packet Loss</span>
+      <strong id="qualityLoss">--%</strong>
+    </div>
+
+    <div class="quality-card">
+      <span>DNS Response</span>
+      <strong id="qualityDns">-- ms</strong>
+    </div>
+
+    <div class="quality-card">
+      <span>Gateway Ping</span>
+      <strong id="qualityGateway">N/A</strong>
+    </div>
+  </div>
+</section>
+
+
+<section class="security-panel">
+  <div class="section-heading">
+    <div>
+      <h2>New Device Detection</h2>
+      <p>Unknown devices detected on the main network</p>
+    </div>
+    <span id="securityUpdated">Checking...</span>
+  </div>
+
+  <div id="securitySummary" class="security-summary security-clear">
+    No unknown devices detected
+  </div>
+
+  <div class="activity-table-wrap">
+    <table class="activity-table">
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>IP Address</th>
+          <th>MAC Address</th>
+          <th>First Seen</th>
+        </tr>
+      </thead>
+      <tbody id="securityBody">
+        <tr>
+          <td colspan="4">Checking network...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section class="activity-panel">
   <div class="section-heading">
     <div>
