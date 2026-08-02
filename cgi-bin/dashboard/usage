@@ -1,9 +1,37 @@
 #!/bin/sh
-echo "Content-Type: application/json"; echo ""
+
+echo "Content-Type: application/json"
+echo ""
+
 [ -f /etc/abeyy-dashboard.conf ] && . /etc/abeyy-dashboard.conf
-I="${WAN_IF:-wwan0}"; D="$(vnstat --json -i "$I" 2>/dev/null)"
-last(){ printf '%s' "$D"|jsonfilter -e "$1" 2>/dev/null|tail -n1; }
-DR=$(last '@.interfaces[0].traffic.day[*].rx'); DT=$(last '@.interfaces[0].traffic.day[*].tx')
-MR=$(last '@.interfaces[0].traffic.month[*].rx'); MT=$(last '@.interfaces[0].traffic.month[*].tx')
-DR=${DR:-0};DT=${DT:-0};MR=${MR:-0};MT=${MT:-0}
-echo "{"today_rx":$DR,"today_tx":$DT,"today_total":$((DR+DT)),"month_rx":$MR,"month_tx":$MT,"month_total":$((MR+MT))}"
+
+WAN_IF="${WAN_IF:-wwan0}"
+
+DATA="$(vnstat --json -i "$WAN_IF" 2>/dev/null)"
+
+get_last() {
+    printf '%s' "$DATA" |
+    jsonfilter -e "$1" 2>/dev/null |
+    tail -n 1
+}
+
+DAY_RX=$(get_last '@.interfaces[0].traffic.day[*].rx')
+DAY_TX=$(get_last '@.interfaces[0].traffic.day[*].tx')
+MONTH_RX=$(get_last '@.interfaces[0].traffic.month[*].rx')
+MONTH_TX=$(get_last '@.interfaces[0].traffic.month[*].tx')
+
+DAY_RX=${DAY_RX:-0}
+DAY_TX=${DAY_TX:-0}
+MONTH_RX=${MONTH_RX:-0}
+MONTH_TX=${MONTH_TX:-0}
+
+cat <<JSON
+{
+  "today_rx":$DAY_RX,
+  "today_tx":$DAY_TX,
+  "today_total":$((DAY_RX+DAY_TX)),
+  "month_rx":$MONTH_RX,
+  "month_tx":$MONTH_TX,
+  "month_total":$((MONTH_RX+MONTH_TX))
+}
+JSON

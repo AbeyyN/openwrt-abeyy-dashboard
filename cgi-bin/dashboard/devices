@@ -1,12 +1,117 @@
 #!/bin/sh
-echo "Content-Type: application/json"; echo ""
-printf '[\n'; F=1
-[ -f /tmp/dhcp.leases ] && while read -r E M I H C; do
-[ -n "$M" ] || continue; [ -n "$I" ] || continue
-[ -z "$H" ] || [ "$H" = "*" ] && H="Unknown"
-H=$(printf '%s' "$H"|sed 's/\\/\\\\/g;s/"/\\"/g')
-[ "$F" -eq 0 ] && printf ',\n'
-printf '{"hostname":"%s","ip":"%s","mac":"%s"}' "$H" "$I" "$(printf '%s' "$M"|tr A-F a-f)"
-F=0
-done
+
+echo "Content-Type: application/json"
+echo ""
+
+[ -f /etc/abeyy-dashboard.conf ] && . /etc/abeyy-dashboard.conf
+
+LAN_IF="${LAN_IF:-br-lan}"
+
+LEASES="$(uci -q get dhcp.@dnsmasq[0].leasefile)"
+[ -n "$LEASES" ] || LEASES="/tmp/dhcp.leases"
+
+TMP="/tmp/abeyy-devices.$$"
+NEIGH="/tmp/abeyy-neigh.$$"
+
+: > "$TMP"
+
+add_device() {
+    MAC="$(printf '%s' "$1" | tr 'A-F' 'a-f')"
+    IP="$2"
+    HOST="$3"
+
+    [ -n "$MAC" ] || return
+    [ -n "$IP" ] || return
+
+    if [ -z "$HOST" ] || [ "$HOST" = "*" ]; then
+        HOST="Unknown"
+    fi
+
+    if awk -F'|' -v mac="$MAC" '
+        tolower($1) == tolower(mac) { found=1 }
+        END { exit !found }
+    ' "$TMP"; then
+        return
+    fi
+
+    printf '%s|%s|%s\n' "$MAC" "$IP" "$HOST" >> "$TMP"
+}
+
+# Ambil semua peranti daripada DHCP lease
+if [ -r "$LEASES" ]; then
+    while read -r EXPIRY MAC IP HOST CLIENT_ID; do
+        add_device "$MAC" "$IP" "$HOST"
+    done < "$LEASES"
+fi
+
+# Ambil peranti aktif daripada neighbor/ARP table
+ip neigh show dev "$LAN_IF" 2>/dev/null > "$NEIGH"
+
+while read -r LINE; do
+    IP="$(printf '%s\n' "$LINE" | awk '{print $1}')"
+
+    MAC="$(printf '%s\n' "$LINE" | awk '
+        {
+            for (i=1; i<=NF; i++) {
+                if ($i == "lladdr") {
+                    print $(i+1)
+                    exit
+                }
+            }
+        }
+    ')"
+
+    STATE="$(printf '%s\n' "$LINE" | awk '{print $NF}')"
+
+    [ -n "$MAC" ] || continue
+
+    case "$STATE" in
+        FAILED|INCOMPLETE)
+            continue
+        ;;
+    esac
+
+    HOST=""
+
+    if [ -r "$LEASES" ]; then
+        HOST="$(awk -v mac="$MAC" -v ip="$IP" '
+            tolower($2) == tolower(mac) || $3 == ip {
+                print $4
+                exit
+            }
+        ' "$LEASES")"
+    fi
+
+    if [ -z "$HOST" ] || [ "$HOST" = "*" ]; then
+        HOST="$(awk -v mac="$MAC" '
+            tolower($1) == tolower(mac) {
+                print $2
+                exit
+            }
+        ' /etc/ethers 2>/dev/null)"
+    fi
+
+    add_device "$MAC" "$IP" "$HOST"
+done < "$NEIGH"
+
+printf '[\n'
+
+FIRST=1
+
+while IFS='|' read -r MAC IP HOST; do
+    SAFE_HOST="$(printf '%s' "$HOST" |
+        sed 's/\\/\\\\/g; s/"/\\"/g')"
+
+    if [ "$FIRST" -eq 0 ]; then
+        printf ',\n'
+    fi
+
+    printf '{"hostname":"%s","ip":"%s","mac":"%s"}' \
+        "$SAFE_HOST" "$IP" "$MAC"
+
+    FIRST=0
+done < "$TMP"
+
 printf '\n]\n'
+
+rm -f "$TMP" "$NEIGH"

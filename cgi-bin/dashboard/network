@@ -1,9 +1,41 @@
 #!/bin/sh
-echo "Content-Type: application/json"; echo ""
+
+echo "Content-Type: application/json"
+echo ""
+
 [ -f /etc/abeyy-dashboard.conf ] && . /etc/abeyy-dashboard.conf
-I="${WAN_IF:-wwan0}"; R="/sys/class/net/$I/statistics/rx_bytes"; T="/sys/class/net/$I/statistics/tx_bytes"
-[ -r "$R" ] || { echo '{"download":"0 Mbps","upload":"0 Mbps"}'; exit; }
-R1=$(cat "$R"); T1=$(cat "$T"); sleep 1; R2=$(cat "$R"); T2=$(cat "$T")
-D=$(awk -v b="$((R2-R1))" 'BEGIN{printf "%.2f",b*8/1000000}')
-U=$(awk -v b="$((T2-T1))" 'BEGIN{printf "%.2f",b*8/1000000}')
-echo "{"interface":"$I","download":"$D Mbps","upload":"$U Mbps"}"
+
+WAN_IF="${WAN_IF:-wwan0}"
+
+RX="/sys/class/net/$WAN_IF/statistics/rx_bytes"
+TX="/sys/class/net/$WAN_IF/statistics/tx_bytes"
+
+if [ ! -r "$RX" ] || [ ! -r "$TX" ]; then
+    cat <<JSON
+{
+  "interface":"$WAN_IF",
+  "download":"0 Mbps",
+  "upload":"0 Mbps"
+}
+JSON
+    exit 0
+fi
+
+RX1=$(cat "$RX")
+TX1=$(cat "$TX")
+
+sleep 1
+
+RX2=$(cat "$RX")
+TX2=$(cat "$TX")
+
+DOWN=$(awk -v b="$((RX2-RX1))" 'BEGIN {printf "%.2f", b*8/1000000}')
+UP=$(awk -v b="$((TX2-TX1))" 'BEGIN {printf "%.2f", b*8/1000000}')
+
+cat <<JSON
+{
+  "interface":"$WAN_IF",
+  "download":"$DOWN Mbps",
+  "upload":"$UP Mbps"
+}
+JSON
